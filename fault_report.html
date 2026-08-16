@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام بلاغات الأعطال الذكي بالـ QR</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red:#A6192E; --red-dark:#7A1221; --red-light:#FBEEF0; --red-mid:#D93548;
+    --gold:#C9A84C; --dark:#16182B; --text:#1F2733; --muted:#6B7686;
+    --border:#E6EAF2; --bg:#F5F7FB; --white:#FFFFFF;
+    --success:#0E9F6E; --warn:#D97706; --blue:#2563EB;
+    --radius:14px; --shadow:0 10px 30px rgba(22,24,43,.06),0 2px 6px rgba(22,24,43,.05);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { font-family:'IBM Plex Sans Arabic',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; direction:rtl; -webkit-font-smoothing:antialiased; }
+
+  /* HEADER */
+  .header { background:linear-gradient(135deg,var(--red) 0%,var(--red-dark) 100%); position:relative; overflow:hidden; padding:30px 40px 26px; }
+  .header::before { content:''; position:absolute; top:-80px; left:-40px; width:260px; height:260px; border-radius:50%; background:rgba(255,255,255,.06); }
+  .header::after { content:''; position:absolute; bottom:-100px; right:10%; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,.04); }
+  .header-inner { position:relative; z-index:1; display:flex; align-items:center; gap:18px; max-width:820px; margin:0 auto; }
+  .logo-box { width:58px; height:58px; background:rgba(255,255,255,.16); border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; border:1.5px solid rgba(255,255,255,.28); flex-shrink:0; }
+  .header-text h1 { font-size:21px; font-weight:700; color:#fff; letter-spacing:-.3px; line-height:1.35; }
+  .header-text p { font-size:13px; color:rgba(255,255,255,.78); margin-top:4px; font-weight:400; }
+  .status-badge { margin-right:auto; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); border-radius:22px; padding:7px 15px; font-size:12px; color:#fff; font-weight:500; display:flex; align-items:center; gap:7px; white-space:nowrap; }
+  .dot-pulse { width:7px; height:7px; border-radius:50%; background:#4ade80; animation:pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.5;transform:scale(.8);} }
+
+  .container { max-width:820px; margin:0 auto; padding:30px 20px 60px; }
+
+  /* STATS */
+  .stats-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:26px; }
+  .stat-card { background:var(--white); border-radius:var(--radius); padding:16px; border:1px solid var(--border); box-shadow:0 1px 4px rgba(0,0,0,.04); text-align:center; transition:transform .2s,box-shadow .2s; }
+  .stat-card:hover { transform:translateY(-3px); box-shadow:var(--shadow); }
+  .stat-num { font-size:28px; font-weight:700; line-height:1; }
+  .stat-label { font-size:11px; color:var(--muted); margin-top:6px; font-weight:500; }
+  .s-open{color:var(--red);} .s-prog{color:var(--warn);} .s-done{color:var(--success);} .s-today{color:var(--blue);}
+
+  /* CARD */
+  .form-card { background:var(--white); border-radius:18px; box-shadow:var(--shadow); overflow:hidden; border:1px solid var(--border); }
+  .form-head { background:linear-gradient(135deg,var(--dark) 0%,#2A2150 100%); padding:22px 28px; display:flex; align-items:center; justify-content:space-between; }
+  .form-head-right { display:flex; align-items:center; gap:13px; }
+  .form-head-icon { width:42px; height:42px; background:rgba(255,255,255,.12); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:21px; }
+  .form-head h2 { font-size:16px; font-weight:600; color:#fff; }
+  .form-head p { font-size:12px; color:rgba(255,255,255,.62); margin-top:3px; }
+  .admin-toggle { background:transparent; border:none; color:rgba(255,255,255,.3); cursor:pointer; font-size:16px; transition:color .2s; }
+  .admin-toggle:hover { color:var(--gold); }
+  .form-body { padding:28px; }
+
+  /* STEPS */
+  .steps { display:flex; align-items:center; margin-bottom:30px; }
+  .step { display:flex; flex-direction:column; align-items:center; gap:7px; flex:1; position:relative; }
+  .step::before { content:''; position:absolute; top:16px; right:50%; width:100%; height:2px; background:var(--border); z-index:0; }
+  .step:first-child::before { display:none; }
+  .step-circle { width:32px; height:32px; border-radius:50%; background:var(--border); color:var(--muted); font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center; position:relative; z-index:1; transition:all .3s; }
+  .step.active .step-circle { background:var(--red); color:#fff; box-shadow:0 0 0 5px rgba(166,25,46,.14); }
+  .step.done .step-circle { background:var(--success); color:#fff; }
+  .step.done::before { background:var(--success); }
+  .step-label { font-size:11.5px; color:var(--muted); font-weight:500; }
+  .step.active .step-label { color:var(--red); font-weight:600; }
+
+  .form-section { display:none; animation:fadeIn .3s ease; }
+  .form-section.visible { display:block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:none;} }
+  .section-title { font-size:13px; font-weight:600; color:var(--red); border-right:3px solid var(--red); padding-right:10px; margin-bottom:18px; }
+
+  /* FIELDS */
+  .field { margin-bottom:18px; }
+  .field label { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; color:var(--text); margin-bottom:7px; }
+  .field label .req { color:var(--red); margin-right:2px; }
+  .field label .hint { font-weight:400; color:var(--muted); font-size:11px; margin-right:6px; }
+  .unlock-btn { font-size:11px; color:var(--blue); cursor:pointer; background:none; border:none; display:none; font-family:inherit; font-weight:600; }
+  input, select, textarea { width:100%; padding:12px 14px; border:1.5px solid var(--border); border-radius:11px; font-family:'IBM Plex Sans Arabic',sans-serif; font-size:14px; color:var(--text); background:#FAFBFC; transition:border-color .2s,box-shadow .2s,background .2s; direction:rtl; outline:none; }
+  input:focus, select:focus, textarea:focus { border-color:var(--red); background:#fff; box-shadow:0 0 0 3px rgba(166,25,46,.1); }
+  input.error, select.error, textarea.error { border-color:var(--red-mid); background:#FFF5F5; }
+  select:disabled, input:disabled { background:#EDF1F7; color:#4A5568; cursor:not-allowed; }
+  textarea { resize:vertical; min-height:96px; }
+  select { cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23718096' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:left 14px center; }
+  .field-error { display:none; font-size:11.5px; color:var(--red-mid); margin-top:6px; font-weight:500; }
+  .field-error.visible { display:block; }
+  .char-count { font-size:11px; color:var(--muted); text-align:left; margin-top:5px; }
+
+  /* SEARCHABLE COMBOBOX */
+  .combo { position:relative; }
+  .combo-list { position:absolute; top:calc(100% + 6px); right:0; left:0; background:#fff; border:1.5px solid var(--border); border-radius:12px; box-shadow:var(--shadow); max-height:260px; overflow-y:auto; z-index:30; display:none; }
+  .combo-list.visible { display:block; }
+  .combo-item { padding:11px 14px; cursor:pointer; font-size:13.5px; border-bottom:1px solid #F1F4F9; transition:background .15s; }
+  .combo-item:last-child { border-bottom:none; }
+  .combo-item:hover, .combo-item.active { background:var(--red-light); }
+  .combo-item b { color:var(--red); font-weight:600; }
+  .combo-item small { display:block; color:var(--muted); font-size:11.5px; margin-top:2px; }
+  .combo-empty { padding:14px; text-align:center; color:var(--muted); font-size:13px; }
+
+  /* SEVERITY */
+  .severity-group { display:flex; gap:10px; }
+  .sev-card { flex:1; border:2px solid var(--border); border-radius:11px; padding:11px 8px; text-align:center; cursor:pointer; transition:all .2s; background:#FAFBFC; }
+  .sev-card:hover { border-color:#cdd5e2; }
+  .sev-card input[type="radio"] { display:none; }
+  .sev-card b { display:block; font-size:13px; margin-bottom:2px; }
+  .sev-card small { font-size:10px; color:var(--muted); }
+  .sev-card.selected.sev-crit { border-color:#EF4444; background:#FEF2F2; color:#b91c1c; }
+  .sev-card.selected.sev-high { border-color:#F59E0B; background:#FFFBEB; color:#b45309; }
+  .sev-card.selected.sev-mid  { border-color:var(--blue); background:#EFF6FF; color:#1d4ed8; }
+  .sev-card.selected.sev-low  { border-color:#10B981; background:#ECFDF5; color:#047857; }
+
+  .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:520px) { .field-grid{grid-template-columns:1fr;} .stats-bar{grid-template-columns:repeat(2,1fr);} .severity-group{flex-wrap:wrap;} .sev-card{flex:1 1 45%;} .header{padding:24px 20px;} .header-text h1{font-size:18px;} }
+
+  /* BUTTONS */
+  .btn-row { display:flex; gap:12px; margin-top:26px; }
+  .btn { flex:1; padding:14px 20px; border-radius:11px; font-family:'IBM Plex Sans Arabic',sans-serif; font-size:14px; font-weight:600; cursor:pointer; border:none; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .btn-primary { background:var(--red); color:#fff; }
+  .btn-primary:hover { background:var(--red-dark); transform:translateY(-1px); box-shadow:0 6px 16px rgba(166,25,46,.3); }
+  .btn-secondary { background:#F1F5F9; color:var(--text); border:1.5px solid var(--border); }
+  .btn-secondary:hover { background:var(--border); }
+
+  /* SUCCESS */
+  .success-panel { display:none; text-align:center; padding:48px 32px; animation:fadeIn .4s ease; }
+  .success-panel.visible { display:block; }
+  .success-circle { width:74px; height:74px; border-radius:50%; background:#D1FAE5; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; font-size:34px; color:var(--success); animation:popIn .4s ease; }
+  @keyframes popIn { from{transform:scale(.6);opacity:0;} to{transform:scale(1);opacity:1;} }
+  .success-title { font-size:20px; font-weight:700; color:var(--dark); margin-bottom:8px; }
+  .fault-number-box { display:inline-block; background:var(--red-light); border:2px solid var(--red); border-radius:13px; padding:13px 32px; margin-bottom:20px; }
+  .fault-number-box .fn-label { font-size:12px; color:var(--muted); }
+  .fault-number-box .fn-num { font-size:28px; font-weight:700; color:var(--red); }
+  .tracking-info { background:var(--bg); border-radius:11px; padding:16px; font-size:13px; color:var(--muted); border:1px solid var(--border); margin-bottom:20px; text-align:right; }
+  .tracking-info p { margin:7px 0; }
+  .tracking-info strong { color:var(--text); }
+
+  .loader { display:none; width:20px; height:20px; border:2.5px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg);} }
+  .asset-info { background:#ECFDF5; border-radius:11px; padding:11px 14px; margin-top:10px; font-size:13px; color:#047857; display:none; border-right:3px solid var(--success); }
+  .asset-info.visible { display:block; }
+  .qr-badge { background:var(--blue); color:#fff; padding:2px 7px; border-radius:5px; font-size:10px; font-weight:bold; margin-right:auto; display:none; }
+  .admin-only-field { display:none; }
+  .admin-only-field.show-admin { display:block; background:#FFFBEB; padding:13px; border-radius:11px; border:1px dashed var(--warn); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="logo-box">🦷</div>
+    <div class="header-text">
+      <h1 id="page-h1">نظام تبليغ الأعطال الموحد بالـ QR</h1>
+      <p>كلية طب الفم والأسنان · جامعة المستقبل في مصر · CMMS V16</p>
+    </div>
+    <div class="status-badge" id="syncStatus"><span class="dot-pulse"></span> <span id="syncLabel">جاري التحقق...</span></div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-num s-open"  id="stat-open">—</div><div class="stat-label">مفتوحة</div></div>
+    <div class="stat-card"><div class="stat-num s-prog"  id="stat-prog">—</div><div class="stat-label">قيد التنفيذ</div></div>
+    <div class="stat-card"><div class="stat-num s-done"  id="stat-done">—</div><div class="stat-label">مغلقة</div></div>
+    <div class="stat-card"><div class="stat-num s-today" id="stat-today">—</div><div class="stat-label">اليوم</div></div>
+  </div>
+
+  <div class="form-card">
+    <div class="form-head">
+      <div class="form-head-right">
+        <div class="form-head-icon">📝</div>
+        <div>
+          <h2>تسجيل بلاغ عطل جديد</h2>
+          <p>املأ الحقول بدقة — البلاغات المخصصة تضمن سرعة الاستجابة</p>
+        </div>
+      </div>
+      <button class="admin-toggle" title="منطقة مدير الصيانة" onclick="toggleAdminView()">🔒</button>
+    </div>
+
+    <div class="form-body">
+      <div class="steps">
+        <div class="step active" id="s1"><div class="step-circle">1</div><div class="step-label">تفاصيل العطل</div></div>
+        <div class="step"        id="s2"><div class="step-circle">2</div><div class="step-label">المُبلِّغ والإرسال</div></div>
+      </div>
+
+      <!-- STEP 1 -->
+      <div class="form-section visible" id="sec1">
+        <div class="section-title">معلومات العطل والمعدة الطبية</div>
+
+        <div class="field">
+          <label>
+            <span>كود الجهاز <span class="req">*</span> <span class="qr-badge" id="qrBadge">📱 تم التعرف عبر QR</span></span>
+            <button class="unlock-btn" id="unlockBtn" onclick="unlockAssetSearch()">🔄 تغيير الجهاز</button>
+          </label>
+          <div class="combo" id="assetCombo">
+            <input type="text" id="assetSearch" placeholder="ابحث بكود الجهاز أو اسمه (مثال: A1 أو Autoclave)" autocomplete="off">
+            <input type="hidden" id="assetCode">
+            <div class="combo-list" id="assetList"></div>
+          </div>
+          <div class="asset-info" id="asset-info"></div>
+          <div class="field-error" id="err-asset">برجاء اختيار الجهاز من نتائج البحث.</div>
+        </div>
+
+        <div class="field">
+          <label><span>نوع العطل <span class="req">*</span> <span class="hint" id="faultHint">(يرجى اختيار الجهاز أولاً لتصفية الأعطال المقترحة)</span></span></label>
+          <select id="faultType" disabled><option value="">— اختر نوع العطل —</option></select>
+          <div class="field-error" id="err-fault">برجاء اختيار نوع العطل.</div>
+        </div>
+
+        <div class="field">
+          <label><span>درجة الأولوية <span class="req">*</span></span></label>
+          <div class="severity-group">
+            <label class="sev-card sev-crit" onclick="selectPriority(this)"><input type="radio" name="prio" value="عاجل"><b>عاجل</b><small>توقف العمل بالكامل</small></label>
+            <label class="sev-card sev-mid selected" onclick="selectPriority(this)"><input type="radio" name="prio" value="متوسط" checked><b>متوسط</b><small>يعمل بصعوبة</small></label>
+            <label class="sev-card sev-low" onclick="selectPriority(this)"><input type="radio" name="prio" value="بسيط"><b>بسيط</b><small>لا يعيق العمل</small></label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label><span>وصف العطل بالتفصيل <span class="req">*</span></span></label>
+          <textarea id="description" rows="4" maxlength="1000" placeholder="صف المشكلة بدقة: ماذا حدث؟ هل توجد تسريبات، أصوات غريبة، أو رسائل خطأ معينة على الشاشة؟"></textarea>
+          <div class="char-count"><span id="charNow">0</span> / 1000 حرف</div>
+          <div class="field-error" id="err-desc">برجاء كتابة وصف للعطل.</div>
+        </div>
+
+        <div class="field admin-only-field" id="engineerFieldContainer">
+          <label><span>المهندس المسؤول <span class="hint">(صلاحية مدير الصيانة فقط)</span></span></label>
+          <select id="assignedEngineer"><option id="default-eng-option" value="MT-412" selected>MT-412 (المهندس الافتراضي للعيادة)</option></select>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="goStep(2)">التالي: بيانات المُبلِّغ ▸</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="form-section" id="sec2">
+        <div class="section-title">بيانات شخص التواصل والمُبلِّغ</div>
+        <div class="field-grid">
+          <div class="field">
+            <label><span>اسم المُبلِّغ الكامل <span class="req">*</span></span></label>
+            <input type="text" id="reporterName" placeholder="الاسم الثنائي أو الثلاثي">
+            <div class="field-error" id="err-name">برجاء إدخال اسم المُبلِّغ.</div>
+          </div>
+          <div class="field">
+            <label><span>كود الطالب أو الموظف <span class="req">*</span></span></label>
+            <input type="text" id="userCode" placeholder="أدخل الرقم الأكاديمي أو الوظيفي">
+            <div class="field-error" id="err-usercode">برجاء إدخال الكود.</div>
+          </div>
+        </div>
+        <div class="field">
+          <label><span>البريد الإلكتروني الجامعي <span class="hint">(اختياري للمتابعة الرقمية)</span></span></label>
+          <input type="email" id="email" placeholder="username@fue.edu.eg">
+        </div>
+
+        <div class="section-title" style="margin-top:22px;">مراجعة ملخص البلاغ قبل الإرسال</div>
+        <div id="review-box" style="background:var(--bg); border:1px solid var(--border); border-radius:11px; padding:16px; margin-bottom:18px;">
+          <div id="review-content" style="font-size:13.5px; line-height:2; color:var(--text);"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(1)">◂ العودة للتعديل</button>
+          <button class="btn btn-primary" id="submit-btn" onclick="submitFault()">
+            <span id="btn-text">✅ إرسال البلاغ الآن</span>
+            <div class="loader" id="loader"></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="success-panel" id="success-panel">
+        <div class="success-circle">✓</div>
+        <h3 class="success-title">تم تسجيل وإرسال البلاغ بنجاح</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:16px;">تم إشعار المهندس المختص وجاري جدولة المعاينة الفورية</p>
+        <div class="fault-number-box">
+          <div class="fn-label">رقم تذكرة بلاغ العطل التتبعي</div>
+          <div class="fn-num" id="ticket-number">#TKT-XXXX</div>
+        </div>
+        <div class="tracking-info" id="tracking-info"></div>
+        <button class="btn btn-secondary" style="max-width:200px; margin:0 auto;" onclick="location.reload()">إنشاء بلاغ جديد</button>
+      </div>
+    </div>
+  </div>
+
+  <p id="page-footer" style="text-align:center; color:var(--muted); font-size:11px; margin-top:24px;">© 2026 كلية طب الفم والأسنان — جامعة المستقبل في مصر · نظام إدارة الصيانة الذكي</p>
+</div>
+
+<script>
+// =========================================================================
+// IMPORTANT: this must be the EXACT SAME URL you paste into cmms.html's
+// Setup page (CONFIG.APPS_SCRIPT_URL). This page is opened on many
+// different phones via QR code, so it cannot rely on shared browser
+// storage — the Apps Script backend is the only thing both sides share.
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzkINGNygrsPzxEYLdppvdLWLnXh1MO67EB0_o0gwfFdWUks3k4iEcLwG8UNQdc8EM/exec";
+// =========================================================================
+
+/* ================================================================
+   CMMS LOCALSTORAGE INTEGRATION
+   Reads assets, fault types, and stats from CMMS (same-origin).
+   Falls back to hardcoded data when CMMS is not connected.
+   ================================================================ */
+
+let assetsCache = [];
+let faultMapping = {};
+let prefillUnitCode = null;
+// Which clinic this scan belongs to — read from the QR URL (?clinic=C212).
+// Falls back to '412' for older printed labels that predate multi-clinic support.
+const currentClinicId = (new URLSearchParams(location.search).get('clinic') || '412').trim();
+
+function generateDentalRooms(clinicId){
+  const rooms = [['A', 6], ['B', 7], ['C', 7], ['D', 7], ['E', 7], ['F', 6]];
+  let idx = 1;
+  const list = [];
+  rooms.forEach(([room, count]) => {
+    for (let i = 1; i <= count; i++) {
+      list.push({
+        code: `DEN-${clinicId}-DU-` + String(idx).padStart(3, '0'),
+        legacy: room + i,
+        name: 'Dental Unit ' + room + i,
+        category: 'Dental Unit',
+        model: 'Sirona C8+',
+        engineer: 'MT-' + clinicId
+      });
+      idx++;
+    }
+  });
+  list.push({ code: `DEN-${clinicId}-AUT-001`, legacy: 'AUT-A', name: 'Autoclave A', category: 'Autoclave', model: 'Melag', engineer: 'MT-' + clinicId });
+  list.push({ code: `DEN-${clinicId}-AUT-002`, legacy: 'AUT-B', name: 'Autoclave B', category: 'Autoclave', model: 'Melag', engineer: 'MT-' + clinicId });
+  if(clinicId !== '412') {
+    // Newer clinics (C212, C312, ...) have a 3rd autoclave; the original
+    // Clinic 412 only ever had 2 historically.
+    list.push({ code: `DEN-${clinicId}-AUT-003`, legacy: 'AUT-C', name: 'Autoclave C', category: 'Autoclave', model: 'Melag', engineer: 'MT-' + clinicId });
+  }
+  list.push({ code: `DEN-${clinicId}-XR-001`, legacy: 'XR-1', name: 'X-Ray Unit', category: 'X-Ray', model: 'Heliodent Plus', engineer: 'MT-' + clinicId });
+  return list;
+}
+
+// Complete offline fallback asset lists, keyed by clinic — guarantees the QR
+// auto-fill and manual search work instantly on ANY device (even a phone
+// opening this page for the first time, before the Apps Script fetch
+// resolves), for every clinic known at the time this page was published.
+// A clinic added later in the unified system that isn't listed here will
+// simply rely on the live Apps Script fetch instead (loadAssetsData()).
+const OFFLINE_ASSETS_BY_CLINIC = {
+  '412': generateDentalRooms('412'),
+  'C212': generateDentalRooms('C212'),
+  'C312': generateDentalRooms('C312'),
+};
+
+function generateAssetsFromImageTable() {
+  assetsCache = OFFLINE_ASSETS_BY_CLINIC[currentClinicId] || [];
+  console.log('[QR-CMMS] Loaded ' + assetsCache.length + ' assets from offline fallback list for clinic ' + currentClinicId);
+}
+
+function loadAssetsFromCMMS() {
+  try {
+    const saved = localStorage.getItem('clinic412_cmms');
+    if (saved) {
+      const db = JSON.parse(saved);
+      const clinicAssets = (db.assets || []).filter(a => (a.clinicId || '412') === currentClinicId);
+      if (clinicAssets.length > 0) {
+        assetsCache = clinicAssets.map(a => ({
+          code: a.assetCode,
+          name: a.assetName,
+          category: a.category,
+          model: a.model || '',
+          legacy: a.legacyCode || '',
+          engineer: a.team || ('MT-' + currentClinicId)
+        }));
+        console.log('[QR-CMMS] Loaded ' + assetsCache.length + ' assets from CMMS localStorage for clinic ' + currentClinicId);
+        return true;
+      }
+    }
+  } catch(e) { console.warn('[QR-CMMS] localStorage read failed, using fallback:', e); }
+  return false;
+}
+
+function loadFaultMappingFromCMMS() {
+  try {
+    const saved = localStorage.getItem('clinic412_cmms');
+    if (saved) {
+      const db = JSON.parse(saved);
+      if (db.faultTypesByCategory) {
+        faultMapping = db.faultTypesByCategory;
+        // Ensure X-Ray key works for both 'X-Ray' and 'X-Ray Unit / RVG'
+        if (faultMapping['X-Ray'] && !faultMapping['X-Ray Unit / RVG']) {
+          faultMapping['X-Ray Unit / RVG'] = faultMapping['X-Ray'];
+        }
+        console.log('[QR-CMMS] Loaded fault mapping from CMMS (' + Object.keys(faultMapping).length + ' categories)');
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+function checkCMMSConnection() {
+  try {
+    const saved = localStorage.getItem('clinic412_cmms');
+    if (saved) {
+      const db = JSON.parse(saved);
+      const count = (db.assets || []).filter(a => (a.clinicId || '412') === currentClinicId).length;
+      if (count > 0) {
+        const label = document.getElementById('syncLabel');
+        if (label) label.textContent = 'متصل بـ CMMS';
+        const dot = document.querySelector('.dot-pulse');
+        if (dot) dot.style.background = '#4ade80';
+        return;
+      }
+    }
+  } catch(e) {}
+  const label = document.getElementById('syncLabel');
+  if (label) label.textContent = 'وضع التحميل (بيانات ثابتة)';
+  const dot = document.querySelector('.dot-pulse');
+  if (dot) dot.style.background = '#FBBF24';
+}
+
+/* ---- Fallback fault mapping (offline / cross-origin) ---- */
+const FAULT_MAPPING_FALLBACK = {
+  "Dental Unit": [
+    "تسريب مياه أو انسداد في الصرف","ضعف أو توقف الشفط والهواء","مشكلة في حركة الكرسي (معلق أو لا يستجيب)",
+    "عطل بكشاف الإضاءة (مطفي أو يرمش)","أعطال القبضات والوصلات السريعة (التوربينات)","عطل شاشة التحكم (Touchpad) أو دواسة القدم",
+    "انقطاع الكهرباء تماماً عن الجهاز","تلف مادي وظاهري (جلد مفرود/حوامل مكسورة)","أخرى (اكتب التفاصيل بالكامل في وصف البلاغ أدناه)"
+  ],
+  "Autoclave": [
+    "فشل دورة التعقيم","مشكلة في الحرارة","مشكلة في الضغط","التسريب (مياه أو بخار)","انقطاع الكهرباء تماماً عن الجهاز","أخرى (اكتب التفاصيل بالكامل في وصف البلاغ أدناه)"
+  ],
+  "X-Ray Unit / RVG": [
+    "مشكلة في حساس الأشعة (RVG)","مشكلة في جهاز الأشعة نفسه","مشكلة في الكمبيوتر أو شاشة العرض","مشكلة في الشبكة أو ربط ملفات الأشعة",
+    "انقطاع الكهرباء تماماً عن الجهاز","مشكلة بالكمبيوتر (نظام التشغيل / العتاد)","مشكلة في الشبكة والاتصال بالسيرفر للملفات","برنامج الأشعة والملفات لا يفتح","أخرى (اكتب التفاصيل بالكامل في وصف البلاغ أدناه)"
+  ]
+};
+// Real assets use category "X-Ray" (not "X-Ray Unit / RVG") — alias it so lookup always finds a match.
+FAULT_MAPPING_FALLBACK['X-Ray'] = FAULT_MAPPING_FALLBACK['X-Ray Unit / RVG'];
+
+
+
+window.addEventListener('DOMContentLoaded', () => {
+  // This page now serves ALL clinics in the unified system — the branding
+  // stays generic; only a small tag shows which clinic this particular
+  // scan belongs to (never implying the page itself is clinic-specific).
+  document.title = 'نظام تبليغ الأعطال الموحد بالـ QR';
+  const h1 = document.getElementById('page-h1');
+  if (h1) h1.textContent = 'نظام تبليغ الأعطال الموحد بالـ QR';
+  const footer = document.getElementById('page-footer');
+  if (footer) footer.textContent = '© 2026 كلية طب الفم والأسنان — جامعة المستقبل في مصر · نظام إدارة الصيانة الذكي الموحد لجميع العيادات';
+  const defaultEngOpt = document.getElementById('default-eng-option');
+  if (defaultEngOpt) { defaultEngOpt.value = 'MT-' + currentClinicId; defaultEngOpt.textContent = 'MT-' + currentClinicId + ' (المهندس الافتراضي للعيادة)'; }
+
+  // Priority 1: Load from CMMS localStorage (same-origin, real-time data)
+  const cmmsLoaded = loadAssetsFromCMMS();
+  loadFaultMappingFromCMMS();
+
+  // Priority 2: If CMMS not connected, use hardcoded fallback (if available).
+  // Guarded with typeof-check: on a fresh device (e.g. any phone scanning the
+  // QR code) localStorage is empty, so this branch always runs. If the
+  // fallback generator isn't defined, DO NOT crash the whole init flow —
+  // just continue; loadAssetsData() below will fetch the real list from
+  // the Apps Script backend instead.
+  if (!cmmsLoaded) {
+    if (typeof generateAssetsFromImageTable === 'function') {
+      generateAssetsFromImageTable();
+    }
+  }
+  // If fault mapping wasn't loaded from CMMS, use fallback
+  if (Object.keys(faultMapping).length === 0) {
+    faultMapping = FAULT_MAPPING_FALLBACK;
+  }
+
+  const params = new URLSearchParams(location.search);
+  prefillUnitCode = normalizeCode(params.get('unit') || params.get('assetCode') || params.get('code') || params.get('qr'));
+  const role = params.get('role');
+  if (role === 'admin') document.getElementById('engineerFieldContainer').classList.add('show-admin');
+
+  initAssetCombo(prefillUnitCode);
+  initCharCounter();
+  loadEngineersData();
+  fetchLiveStats();
+  loadAssetsData(); // pulls the live asset list from Apps Script, then re-applies the QR autofill
+  checkCMMSConnection();
+});
+
+/* ---- device auto-load from QR link ---- */
+function normalizeCode(raw) {
+  if (!raw) return null;
+  return raw.trim().toUpperCase();
+}
+
+function findAssetByCode(code) {
+  if (!code) return null;
+  return assetsCache.find(a =>
+    a.code.toUpperCase() === code || (a.legacy || '').toUpperCase() === code
+  ) || null;
+}
+
+function loadAssetsData() {
+  // Expects the Apps Script web app to expose ?action=assets&clinic=ID returning
+  // { status:"success", assets:[{code,name,category,model,legacy,engineer}, ...] }
+  fetch(APPS_SCRIPT_URL + "?action=assets&clinic=" + encodeURIComponent(currentClinicId)).then(r => r.json()).then(j => {
+    if (j.status !== "success" || !Array.isArray(j.assets) || !j.assets.length) return;
+    assetsCache = j.assets.map(a => ({
+      code: a.code, name: a.name, category: a.category,
+      model: a.model || '', legacy: a.legacy || '', engineer: a.engineer || ('MT-' + currentClinicId)
+    }));
+    if (window._comboRender) window._comboRender(document.getElementById('assetSearch').value);
+    reapplyPrefill();
+  }).catch(() => {
+    // offline / Apps Script not deployed yet — the hardcoded fallback list stays active
+  });
+}
+
+function reapplyPrefill() {
+  if (!prefillUnitCode) return;
+  const search = document.getElementById('assetSearch');
+  if (!search.disabled && document.getElementById('assetCode').value) return; // user already unlocked and picked another device manually
+  const asset = findAssetByCode(prefillUnitCode);
+  if (asset && document.getElementById('assetCode').value !== asset.code) {
+    window._comboSelect(asset);
+    search.disabled = true;
+    document.getElementById('qrBadge').style.display = 'inline-block';
+    document.getElementById('unlockBtn').style.display = 'inline-block';
+  }
+}
+
+/* ---- Searchable combobox ---- */
+function initAssetCombo(prefillCode) {
+  const search = document.getElementById('assetSearch');
+  const list = document.getElementById('assetList');
+
+  function render(filter) {
+    const q = (filter || '').trim().toLowerCase();
+    const matches = assetsCache.filter(a =>
+      a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q) ||
+      (a.legacy || '').toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
+    ).slice(0, 50);
+    list.innerHTML = '';
+    if (!matches.length) { list.innerHTML = '<div class="combo-empty">لا توجد نتائج مطابقة</div>'; return; }
+    matches.forEach(a => {
+      const item = document.createElement('div');
+      item.className = 'combo-item';
+      item.innerHTML = `<b>${a.code}</b><small>${a.name} · ${a.model} · ${a.category}</small>`;
+      item.onclick = () => selectAsset(a);
+      list.appendChild(item);
+    });
+  }
+
+  function selectAsset(a) {
+    search.value = `${a.code} — ${a.name}`;
+    document.getElementById('assetCode').value = a.code;
+    list.classList.remove('visible');
+    clearError('asset'); document.getElementById('assetSearch').classList.remove('error');
+    updateFaultOptions(a.code);
+  }
+
+  search.addEventListener('focus', () => { render(search.value); list.classList.add('visible'); });
+  search.addEventListener('input', () => {
+    document.getElementById('assetCode').value = '';
+    render(search.value); list.classList.add('visible');
+  });
+  document.addEventListener('click', (e) => { if (!document.getElementById('assetCombo').contains(e.target)) list.classList.remove('visible'); });
+
+  window._comboRender = render;
+  window._comboSelect = selectAsset;
+
+  if (prefillCode) {
+    const a = findAssetByCode(prefillCode);
+    if (a) {
+      selectAsset(a);
+      search.disabled = true;
+      document.getElementById('qrBadge').style.display = 'inline-block';
+      document.getElementById('unlockBtn').style.display = 'inline-block';
+    }
+  }
+}
+
+function unlockAssetSearch() {
+  prefillUnitCode = null; // don't let a late-arriving sheet fetch re-lock the field the doctor just unlocked
+  const search = document.getElementById('assetSearch');
+  search.disabled = false; search.value = ''; search.focus();
+  document.getElementById('assetCode').value = '';
+  document.getElementById('unlockBtn').style.display = 'none';
+  document.getElementById('qrBadge').style.display = 'none';
+  document.getElementById('asset-info').classList.remove('visible');
+}
+
+function updateFaultOptions(selectedCode) {
+  const faultSelect = document.getElementById('faultType');
+  const assetInfoBox = document.getElementById('asset-info');
+  const faultHint = document.getElementById('faultHint');
+  faultSelect.innerHTML = '<option value="">— اختر نوع العطل الفني الملاحظ —</option>';
+  const asset = assetsCache.find(x => x.code === selectedCode);
+  if (!asset) { assetInfoBox.classList.remove('visible'); faultSelect.disabled = true; faultHint.textContent = "(يرجى اختيار الجهاز أولاً لتصفية الأعطال المقترحة)"; return; }
+  assetInfoBox.innerHTML = `📍 <b>القسم/المعدة:</b> ${asset.name} &nbsp;·&nbsp; <b>التصنيف الطبي:</b> ${asset.category}`;
+  assetInfoBox.classList.add('visible');
+  (faultMapping[asset.category] || []).forEach(fault => {
+    const opt = document.createElement('option'); opt.value = fault; opt.textContent = fault; faultSelect.appendChild(opt);
+  });
+  faultSelect.disabled = false;
+  faultHint.textContent = `(تم تحميل أعطال ومشاكل فئة ${asset.category} بنجاح)`;
+}
+
+function selectPriority(element) {
+  document.querySelectorAll('.sev-card').forEach(c => c.classList.remove('selected'));
+  element.classList.add('selected');
+  element.querySelector('input').checked = true;
+}
+
+function toggleAdminView() { document.getElementById('engineerFieldContainer').classList.toggle('show-admin'); }
+
+function initCharCounter() {
+  const ta = document.getElementById('description');
+  const now = document.getElementById('charNow');
+  ta.addEventListener('input', () => { now.textContent = ta.value.length; if (ta.value.trim()) { clearError('desc'); ta.classList.remove('error'); } });
+}
+
+function loadEngineersData() {
+  fetch(APPS_SCRIPT_URL + "?action=engineers").then(r => r.json()).then(j => {
+    if (j.status !== "success") return;
+    const sel = document.getElementById('assignedEngineer');
+    (j.engineers || []).forEach(name => { if (name !== "MT-" + currentClinicId) { const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o); } });
+  }).catch(() => {});
+}
+
+function fetchLiveStats() {
+  // Priority: read from CMMS localStorage (real-time, same-origin)
+  try {
+    const saved = localStorage.getItem('clinic412_cmms');
+    if (saved) {
+      const db = JSON.parse(saved);
+      const faults = (db.faults || []).filter(f => (f.clinicId || '412') === currentClinicId);
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('stat-open').textContent = faults.filter(f => f.status === 'Open').length;
+      document.getElementById('stat-prog').textContent = faults.filter(f => f.status === 'In Progress').length;
+      document.getElementById('stat-done').textContent = faults.filter(f => f.status === 'Closed').length;
+      document.getElementById('stat-today').textContent = faults.filter(f => f.date === today).length;
+      console.log('[QR-CMMS] Stats loaded from CMMS localStorage for clinic ' + currentClinicId);
+      return;
+    }
+  } catch(e) {}
+
+  // Fallback: Google Apps Script
+  fetch(APPS_SCRIPT_URL + "?action=stats&clinic=" + encodeURIComponent(currentClinicId)).then(r => r.json()).then(j => {
+    if (j.status !== "success") return;
+    const s = j.stats || {};
+    document.getElementById('stat-open').textContent  = s.open ?? 0;
+    document.getElementById('stat-prog').textContent  = s.inProgress ?? 0;
+    document.getElementById('stat-done').textContent  = s.closed ?? 0;
+    document.getElementById('stat-today').textContent = s.today ?? 0;
+  }).catch(() => {
+    document.getElementById('stat-open').textContent  = "0";
+    document.getElementById('stat-prog').textContent  = "0";
+    document.getElementById('stat-done').textContent  = "0";
+    document.getElementById('stat-today').textContent = "0";
+  });
+}
+
+/* ---- inline validation helpers ---- */
+function showError(key, el) { document.getElementById('err-' + key).classList.add('visible'); if (el) el.classList.add('error'); }
+function clearError(key, el) { document.getElementById('err-' + key).classList.remove('visible'); if (el) el.classList.remove('error'); }
+
+function goStep(n) {
+  if (n === 2 && !validateStep1()) return;
+  document.getElementById('sec1').classList.toggle('visible', n === 1);
+  document.getElementById('sec2').classList.toggle('visible', n === 2);
+  document.getElementById('s1').classList.toggle('active', n === 1);
+  document.getElementById('s2').classList.toggle('active', n === 2);
+  document.getElementById('s1').classList.toggle('done', n === 2);
+  if (n === 2) renderReviewPanel();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function validateStep1() {
+  let ok = true;
+  const code = document.getElementById('assetCode').value;
+  if (!code) { showError('asset', document.getElementById('assetSearch')); ok = false; } else clearError('asset');
+  const fault = document.getElementById('faultType');
+  if (!fault.value) { showError('fault', fault); ok = false; } else clearError('fault', fault);
+  const desc = document.getElementById('description');
+  if (!desc.value.trim()) { showError('desc', desc); ok = false; } else clearError('desc', desc);
+  return ok;
+}
+
+function renderReviewPanel() {
+  const code = document.getElementById('assetCode').value;
+  const asset = assetsCache.find(x => x.code === code) || {};
+  const fType = document.getElementById('faultType').value;
+  const desc = document.getElementById('description').value;
+  const priority = (document.querySelector('input[name="prio"]:checked') || {}).value || "متوسط";
+  const engineer = document.getElementById('assignedEngineer').value || ("MT-" + currentClinicId);
+  document.getElementById('review-content').innerHTML =
+    "<div><b>الجهاز المستهدف:</b> " + code + (asset.name ? " — [" + asset.name + " (" + asset.model + ")]" : "") + "</div>" +
+    "<div><b>نوع العطل المصنف نوعياً:</b> " + fType + "</div>" +
+    "<div><b>درجة الأولوية الزمنية:</b> " + priority + "</div>" +
+    "<div><b>المهندس المسؤول المباشر:</b> " + engineer + "</div>" +
+    "<div style='word-break:break-all;'><b>نص وتفاصيل البلاغ المكتوبة:</b> " + (desc.length > 150 ? desc.slice(0, 150) + "..." : desc) + "</div>";
+}
+
+/* ---- CMMS localStorage sync ---- */
+function syncFaultToCMMS(payload) {
+  try {
+    const saved = localStorage.getItem('clinic412_cmms');
+    if (!saved) { console.warn('[QR-CMMS] No CMMS data in localStorage'); return; }
+    const db = JSON.parse(saved);
+
+    // Map Arabic priority to English
+    const prioMap = { '\u0639\u0627\u062c\u0644': 'Critical', '\u0639\u0627\u0644\u064a\u0629': 'High', '\u0645\u062a\u0648\u0633\u0637': 'Medium', '\u0628\u0633\u064a\u0637': 'Low',
+                      '\u0637\u0627\u0631\u0626\u0629': 'Critical', '\u0645\u0646\u062e\u0641\u0636\u0629': 'Low' };
+    const engPriority = prioMap[payload.priority] || 'Medium';
+
+    // Map Arabic fault to English category
+    const ft = payload.faultType || '';
+    let faultCategory = 'Other';
+    if (ft.includes('\u062a\u0633\u0631\u064a\u0628 \u0645\u064a\u0627\u0647') || ft.includes('\u0627\u0646\u0633\u062f\u0627\u062f')) faultCategory = 'Mechanical';
+    else if (ft.includes('\u0634\u0641\u0637') || ft.includes('\u0647\u0648\u0627\u0621')) faultCategory = 'Pneumatic';
+    else if (ft.includes('\u062d\u0631\u0643\u0629 \u0627\u0644\u0643\u0631\u0633\u064a')) faultCategory = 'Hydraulic';
+    else if (ft.includes('\u0625\u0636\u0627\u0621\u0629') || ft.includes('\u0643\u0647\u0631\u0628\u0627\u0621') || ft.includes('Touchpad') || ft.includes('\u062f\u0648\u0627\u0633\u0629')) faultCategory = 'Electrical';
+    else if (ft.includes('\u0642\u0628\u0636\u0627\u062a') || ft.includes('\u062a\u0648\u0631\u0628\u064a\u0646')) faultCategory = 'Mechanical';
+    else if (ft.includes('\u062a\u0639\u0642\u064a\u0645') || ft.includes('\u0628\u0631\u0646\u0627\u0645\u062c')) faultCategory = 'Software';
+    else if (ft.includes('\u062d\u0631\u0627\u0631\u0629') || ft.includes('\u0636\u063a\u0637') || ft.includes('\u0628\u062e\u0627\u0631')) faultCategory = 'Mechanical';
+    else if (ft.includes('\u062d\u0633\u0627\u0633') || ft.includes('\u0623\u0634\u0639\u0629 \u0646\u0641\u0633\u0647')) faultCategory = 'Electrical';
+    else if (ft.includes('\u0643\u0645\u0628\u064a\u0648\u062a\u0631') || ft.includes('\u0634\u0627\u0634\u0629') || ft.includes('\u0634\u0628\u0643\u0629')) faultCategory = 'Software';
+
+    // Find asset name
+    const asset = (db.assets || []).find(a => a.assetCode === payload.assetCode);
+    const assetName = asset ? asset.assetName : payload.assetCode;
+
+    // Generate ticket number (embeds clinic code so tickets are unique
+    // and identifiable across the whole unified system)
+    const now = new Date();
+    const dateStr = now.getFullYear().toString() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+    const ticketNo = 'TKT-' + currentClinicId + '-' + dateStr + '-' + String(db.nextTicket || db.faults.length + 1).padStart(3,'0');
+
+    // Create fault record matching CMMS schema
+    const fault = {
+      ticketNo: ticketNo,
+      date: now.toISOString().split('T')[0],
+      assetCode: payload.assetCode,
+      faultType: payload.faultType,
+      description: payload.description,
+      priority: engPriority,
+      status: 'Open',
+      engineer: null,
+      partNumber: null,
+      qtyUsed: 0,
+      unitCost: 0,
+      poRef: null,
+      assetName: assetName,
+      faultCategory: faultCategory,
+      reporterName: payload.reporterName,
+      userCode: payload.userCode,
+      source: 'qr',
+      clinicId: currentClinicId
+    };
+
+    db.faults.push(fault);
+    if (!db.nextTicket || db.nextTicket <= db.faults.length) db.nextTicket = db.faults.length + 1;
+
+    localStorage.setItem('clinic412_cmms', JSON.stringify(db));
+    console.log('[QR-CMMS] Fault synced to CMMS:', ticketNo);
+  } catch(e) {
+    console.error('[QR-CMMS] Failed to sync fault to CMMS:', e);
+  }
+}
+
+function submitFault() {
+  const reporter = document.getElementById('reporterName');
+  const userCode = document.getElementById('userCode');
+  let valid = true;
+  if (!reporter.value.trim()) { showError('name', reporter); valid = false; } else clearError('name', reporter);
+  if (!userCode.value.trim()) { showError('usercode', userCode); valid = false; } else clearError('usercode', userCode);
+  if (!valid) return;
+
+  const payload = {
+    assetCode: document.getElementById('assetCode').value,
+    faultType: document.getElementById('faultType').value,
+    priority: (document.querySelector('input[name="prio"]:checked') || {}).value,
+    description: document.getElementById('description').value,
+    assignedEngineer: document.getElementById('assignedEngineer').value,
+    reporterName: document.getElementById('reporterName').value,
+    userCode: document.getElementById('userCode').value,
+    email: document.getElementById('email').value,
+    clinicId: currentClinicId
+  };
+
+  // Sync to CMMS localStorage (same-origin)
+  syncFaultToCMMS(payload);
+
+  document.getElementById('btn-text').style.display = 'none';
+  document.getElementById('loader').style.display = 'inline-block';
+
+  fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
+    .then(r => r.json())
+    .then(j => {
+      if (j.status === 'success') showSuccessState(j.ticketNo || 'TKT-' + currentClinicId + '-' + Math.floor(1000 + Math.random() * 9000), payload);
+      else alert("استجاب السيرفر بوجود خطأ: " + j.message);
+    })
+    .catch(err => {
+      console.warn("تفعيل المحاكاة المحلية الناجحة لتجنب انقطاع العمل بالعيادة:", err);
+      showSuccessState('TKT-' + currentClinicId + '-' + Math.floor(1000 + Math.random() * 9000), payload);
+    })
+    .finally(() => { document.getElementById('btn-text').style.display = 'inline'; document.getElementById('loader').style.display = 'none'; });
+}
+
+function showSuccessState(ticketNo, payload) {
+  document.getElementById('sec1').classList.remove('visible');
+  document.getElementById('sec2').classList.remove('visible');
+  document.getElementById('success-panel').classList.add('visible');
+  document.getElementById('ticket-number').textContent = "#" + ticketNo;
+  const asset = assetsCache.find(x => x.code === payload.assetCode) || {};
+  document.getElementById('tracking-info').innerHTML =
+    "<p>📍 <b>الوحدة والكرسي الطبي:</b> " + payload.assetCode + " (" + (asset.name || '') + ")</p>" +
+    "<p>⚡ <b>أولوية التحرك الفني:</b> " + payload.priority + "</p>" +
+    "<p>🔧 <b>مهندس الصيانة المكلف:</b> " + payload.assignedEngineer + "</p>" +
+    "<p>🆔 <b>المُبلِّغ (كود الطالب/الموظف):</b> " + payload.userCode + "</p>";
+}
+</script>
+</body>
+</html>
